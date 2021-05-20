@@ -1,6 +1,7 @@
 import time
 from math import floor
 import os
+import pathlib
 import cv2
 import numpy
 # import matplotlib.pyplot as plt
@@ -10,10 +11,19 @@ import numpy
 
 class Trial:
 
-    def __init__(self, cam, subject: str = input("Enter subject name: "),
-                 num_trials: int = 10,
-                 num_samples: int = 30):
-        self.subject = subject
+    def __init__(self, cam, subject: str = None,
+                 num_trials: int = 5,
+                 num_samples: int = 100):
+        if subject is not None:
+            self.subject = subject
+        else:
+            subject = input("Enter subject name: ")
+            if len(subject) == 0:
+                subject = 'exp'
+            for i in range(10000):
+                if not pathlib.Path(f'{subject}{i:05d}').exists():
+                    self.subject = f'{subject}{i:05d}'
+                    break
         self.nTrials = num_trials
         self.nSamples = num_samples
         self.cam = cam
@@ -26,7 +36,6 @@ class Trial:
     def get_sample(self, i: int = 0):
         _, o = self.cam.read()
         time.sleep(0.1)
-        # _, r = cam.read()
         if self.concentrate:
             if i == 0:
                 self.framesFocus.append([])
@@ -42,12 +51,10 @@ class Trial:
                 self.concentrate = True
                 if not self.quiet:
                     print("Concentrate")
-                    # time.sleep(1)
             else:
                 self.concentrate = False
                 if not self.quiet:
                     print("Relax")
-                    # time.sleep(1)
             t1 = time.monotonic_ns()
             for i in range(self.nSamples):
                 self.get_sample(i)
@@ -67,25 +74,27 @@ class Trial:
             subject=numpy.array(self.subject),
             trials=numpy.full((), self.nTrials, dtype=numpy.int32),
             samples=numpy.full((), self.nSamples, dtype=numpy.int32),
-            focus=self.framesFocus,
-            relax=self.framesRelax,
         )
-        # for i,tf in enumerate(self.framesFocus):
-        #     for j,f in enumerate(tf):
-        #         cv2.imwrite(f"{self.subject}/ft{i:02d}s{j:03d}.webp", f)
-        # for i,tf in enumerate(self.framesRelax):
-        #     for j,f in enumerate(tf):
-        #         cv2.imwrite(f"{self.subject}/rt{i:02d}s{j:03d}.webp", f)
+        fourcc = cv2.VideoWriter_fourcc(*'FFV1')
+        out = cv2.VideoWriter(f'{self.subject}/{self.subject}.mkv', fourcc, 20.0, (640,480))
+        for t in range(self.nTrials):
+            for c in (0,1):
+                for s in range(self.nSamples):
+                    if c:
+                        out.write(self.framesFocus[t][s])
+                    else:
+                        out.write(self.framesRelax[t][s])
+        out.release()
 
 
 def main():
-    cam = cv2.VideoCapture(0)
+    if os.name == 'nt':
+        cam = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+    else:
+        cam = cv2.VideoCapture(0)
     # warm up the camera
     for _ in range(5):
         cam.read()
-    # style.use('fivethirtyeight')
-    # max(moA) 123.8315
-    # min(moA) 121.3040
     """
     nT=20;nS=100;
     moA=[random.uniform(121.3040,123.8315) for _ in range(nT*nS)]
@@ -93,7 +102,7 @@ def main():
     cA=[item for sublist in cA for item in sublist]
     tA=[random.uniform(6.6020,6.6890) for _ in range(nT)]
     """
-    #fig = plt.figure()
+    # fig = plt.figure()
     # ax1 = fig.add_subplot(1, 1, 1)
     tr = Trial(cam)
 
@@ -106,10 +115,10 @@ def main():
     #plt.show()
 
     cam.release()
-    cv2.destroyAllWindows()
 
     input("Press any key to exit...")
 
 
 if __name__ == "__main__":
     main()
+    cv2.destroyAllWindows()

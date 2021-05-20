@@ -1,5 +1,6 @@
 import io
 import tarfile
+from pathlib import Path
 import time
 import os
 
@@ -11,53 +12,100 @@ from matplotlib import pyplot as plt
 class PlasmaData:
 
     def __init__(self, path = '', subject='', read_init = False):
-        self.focus = []
-        self.relax = []
+        self.focus = None
+        self.relax = None
+        self.flows = []
         self.basic_analysis = None
         self.subject: str = subject
         self.path: str = path
+        self.trials = 0
+        self.samples = 0
         if read_init:
             self.read_data()
 
+    def read_tar(self):
+        tar_bytes = open(self.path, 'rb').read()
+        iob = io.BytesIO(tar_bytes)
+        with tarfile.open(fileobj=iob) as tf:
+            m = tf.getmembers()
+            memb = m.pop(tuple(map(lambda x: x.name.endswith('dat.npz'), m)).index(True))
+            with np.load(tf.extractfile(memb)) as dat:
+                self.trials = dat['trials']
+                self.samples = dat['samples']
+            self.focus = [list() for i in range(self.trials)]
+            self.relax = [list() for i in range(self.trials)]
+            memb = m.pop(tuple(map(lambda x: x.name.endswith(f'{self.subject}.mkv'), m)).index(True))
+            cap = cv2.VideoCapture(tf.extractfile(memb))
+            for t in range(self.trials):
+                for c in (0,1):
+                    for s in range(self.samples):
+                        ret, frame = cap.read()
+                        if c:
+                            self.focus[t].append(frame)
+                        else:
+                            self.relax[t].append(frame)
+            print(f"done reading tarfile: {self.focus.size}")
+
     def read_data(self):
-        if self.path.endswith('.tar'):
-            tar_bytes = open(self.path, 'rb').read()
-            iob = io.BytesIO(tar_bytes)
-            with tarfile.open(fileobj=iob) as tf:
-                m = tf.getmembers()
-                memb = m.pop(tuple(map(lambda x: x.name.endswith('z'), m)).index(True))
-                self.basic_analysis = np.load(tf.extractfile(memb)) # maybe cleanup
-                mbarr = np.array_split(m, self.basic_analysis['trials']*2)
-                with np.nditer(mbarr, op_flags=['readwrite']) as it:
-                    for x in it:
-                        x[...] = cv2.imdecode(tf.extractfile(x).read())
-                mbarr = np.array(mbarr)
-                self.focus = mbarr[0::2]
-                self.relax = mbarr[1::2]
-        else:
-            self.basic_analysis = np.load(f"{self.path}/dat.npz")
-            self.focus = [list() for i in range(self.basic_analysis['trials'])]
-            self.relax = [list() for i in range(self.basic_analysis['trials'])]
-            for t in range(5):
-                for s in range(100):
-                    self.focus[t].append(cv2.imread(f"{self.path}/ft{t:02d}s{s:03d}.webp"))
-                    self.relax[t].append(cv2.imread(f"{self.path}/rt{t:02d}s{s:03d}.webp"))
-        print(f"done reading data: {len(self.focus)=}")
+        with np.load(f"{self.path}/dat.npz") as dat:
+            self.trials = dat['trials']
+            self.samples = dat['samples']
+        self.focus = [list() for i in range(self.trials)]
+        self.relax = [list() for i in range(self.trials)]
+        cap = cv2.VideoCapture(f'{self.subject}/{self.subject}.mkv')
+        for t in range(self.trials):
+            for c in (0,1):
+                for s in range(self.samples):
+                    ret, frame = cap.read()
+                    if c:
+                        self.focus[t].append(frame)
+                    else:
+                        self.relax[t].append(frame)
+        self.focus = np.array(self.focus)
+        self.relax = np.array(self.relax)
+        print(f"done reading data: focus<shape={self.focus.shape}, dtype={self.focus.dtype}>")
+
+    def calc_flows(self):
+        pth = Path(f"{self.path}/flow.npz")
+        d = None
+        if pth.exists():
+            with np.load(pth) as dat:
+                d = dat['flows']
+            return d
+        frgen = self.seq_frames()
+        prev = cv2.cvtColor(next(frgen), cv2.COLOR_BGR2GRAY)
+        for i in range((self.trials*self.samples*2)-1):
+            nxt = cv2.cvtColor(next(frgen), cv2.COLOR_BGR2GRAY)
+            flow = cv2.calcOpticalFlowFarneback(prev,nxt,None,0.5,3,15,3,5,1.2,0)
+            self.flows.append(flow)
+            prev = nxt
+        self.flows = np.array(self.flows)
+        print(f"finshed calculating optical flow: {self.flows.shape}, {self.flows.dtype}")
+
+    def calc_means(self):
+        self.fmeans = []
+        self.rmeans = []
+        for t in range(self.trials):
+            for c in (0,1):
+                if c:
+                    self.fmeans.append(np.average(self.focus[t]))
+                else:
+                    self.rmeans.append(np.average(self.relax[t]))
 
     def seq_frames(self):
-        for trial in range(self.basic_analysis['trials']):
-            for i in range(2):
-                if i:
-                    for j in range(self.basic_analysis['samples']):
+        for trial in range(self.trials):
+            for c in (0,1):
+                for j in range(self.samples):
+                    if c:
                         yield self.relax[trial][j]
-                else:
-                    for j in range(self.basic_analysis['samples']):
+                    else:
                         yield self.focus[trial][j]
 # XXX: UPDATE IMAGE PATH FSTRINGS IN analysis.py AND plasma-exp.py
 # unfold plasma ball
 
 pd = PlasmaData('callen_exp03','callen_exp03')
 pd.read_data()
+
 frame1 = next(pd.seq_frames())
 prvs = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
 hsv = np.zeros_like(frame1)
