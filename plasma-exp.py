@@ -29,12 +29,15 @@ class Trial:
         self.cam = cam
         self.concentrate = True
         self.time_delta = []
+        self.timestamps = []
         self.framesFocus = []
         self.framesRelax = []
         self.quiet = False
 
     def get_sample(self, i: int = 0):
         _, o = self.cam.read()
+        ts = time.monotonic_ns()
+        self.timestamps.append(ts)
         time.sleep(0.1)
         if self.concentrate:
             if i == 0:
@@ -74,6 +77,8 @@ class Trial:
             subject=numpy.array(self.subject),
             trials=numpy.full((), self.nTrials, dtype=numpy.int32),
             samples=numpy.full((), self.nSamples, dtype=numpy.int32),
+            elapsed=numpy.array(self.time_delta),
+            timestamps=numpy.array(self.timestamps),
         )
         fourcc = cv2.VideoWriter_fourcc(*'FFV1')
         out = cv2.VideoWriter(f'{self.subject}/{self.subject}.mkv', fourcc, 20.0, (640,480))
@@ -95,24 +100,11 @@ def main():
     # warm up the camera
     for _ in range(5):
         cam.read()
-    """
-    nT=20;nS=100;
-    moA=[random.uniform(121.3040,123.8315) for _ in range(nT*nS)]
-    cA=[[0]*nS if i%2==0 else [1]*nS for i in range(nT)]
-    cA=[item for sublist in cA for item in sublist]
-    tA=[random.uniform(6.6020,6.6890) for _ in range(nT)]
-    """
-    # fig = plt.figure()
-    # ax1 = fig.add_subplot(1, 1, 1)
+
     tr = Trial(cam)
 
-    # TODO: get subject name in a nicer way
-
-    # ani = animation.FuncAnimation(fig, tr.nop)
-    # plt.draw()
     tr.run_trial()
     tr.save_output()
-    #plt.show()
 
     cam.release()
 

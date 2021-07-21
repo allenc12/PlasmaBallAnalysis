@@ -3,6 +3,7 @@ import cv2
 import logging
 from pathlib import Path
 
+
 def read_frame(cap):
     ret, frame = cap.read()
     if not ret:
@@ -10,7 +11,6 @@ def read_frame(cap):
     return frame
 
 
-# https://github.com/allenc12/PlasmaBallAnalysis
 # https://www.nvidia.com/en-us/gtc/keynote/
 
 # elinux.org cameras for jetsons
@@ -86,6 +86,8 @@ def convert_viddy():
     fourcc = cv2.VideoWriter_fourcc(*'FFV1')
     out = cv2.VideoWriter(video_filename, fourcc, 20.0, (640,480))
     frames = []
+    # these values are hardcoded, and don't take into account different
+    #  trial or sample values
     for t in range(5):
         for ch in 'rf':
             for s in range(100):
@@ -135,12 +137,7 @@ def flow_mean():
 
 
 def main():
-    x=range(100)
-    print(next(x))
-    for i in x:
-        print(f"x:{i}")
-    # small_flow()
-    # flow_mean()
+    flow_mean()
     pass
 
 
