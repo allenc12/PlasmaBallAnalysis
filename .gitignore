@@ -7,3 +7,6 @@
 /cuda_ex.cpp
 /frames_per_cunk.py
 /.vscode
+/build
+/cpp_rewrite/build
+.cache/
