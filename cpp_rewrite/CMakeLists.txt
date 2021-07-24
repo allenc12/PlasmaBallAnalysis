@@ -7,8 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 find_package(OpenCV REQUIRED)
 
-include_directories(${OpenCV_INCLUDE_DIRS})
+find_package(jsoncpp REQUIRED)
+
+include_directories(${OpenCV_INCLUDE_DIRS} ${jsoncpp_INCLUDE_DIRS})
 
 add_executable(cap_video main.cpp VideoCap.cpp)
 
-target_link_libraries(cap_video ${OpenCV_LIBS})
+target_link_libraries(cap_video ${OpenCV_LIBS} ${jsoncpp_LIBS})

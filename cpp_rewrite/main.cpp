@@ -1,3 +1,5 @@
+#include "VideoCap.hpp"
+
 #include <cstdio>
 #include <cstdlib>
 #include <opencv2/opencv.hpp>

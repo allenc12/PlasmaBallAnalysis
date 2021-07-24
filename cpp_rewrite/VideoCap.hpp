@@ -9,8 +9,8 @@ class VideoCap {
 public:
   VideoCap(void);
   VideoCap(bool);
-  VideoCap(cv::VideoCapture &, std::string, const unsigned, const unsigned);
-  VideoCap(cv::VideoCapture &, std::string, const unsigned, const unsigned, bool);
+  VideoCap(cv::VideoCapture &, const char*, unsigned, unsigned);
+  VideoCap(cv::VideoCapture &, const char*, unsigned, unsigned, bool);
   VideoCap(const VideoCap &);
   ~VideoCap(void);
   VideoCap &operator=(const VideoCap &);
@@ -20,9 +20,9 @@ public:
   void saveOutput(void);
 
 private:
-  const unsigned num_trials;
-  const unsigned num_samples;
-  const std::size_t size;
+  unsigned num_trials;
+  unsigned num_samples;
+  std::size_t size;
 
   bool focus;
   bool quiet;
