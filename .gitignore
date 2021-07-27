@@ -11,3 +11,4 @@
 /cpp_rewrite/build
 .cache/
 .dir-locals.el
+.ccls-cache
